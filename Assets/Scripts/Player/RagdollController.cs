@@ -57,8 +57,8 @@ public class RagdollController : MonoBehaviour
             return;
         }
 
-        Rotate();
-        Move();
+        //Rotate();
+        //Move();
     }
 
     // Input callbacks
