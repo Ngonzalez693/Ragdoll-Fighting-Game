@@ -4,19 +4,12 @@ using UnityEngine.SceneManagement;
 public class MainMenuController : MonoBehaviour
 {
     [SerializeField] private string playScene = "";                     // Name of the scene to load when "Play" is clicked
-    [SerializeField] private string multiplayerScene = "";              // Name of the scene to load when "Multiplayer" is clicked
 
     // Play, Multiplayer, Settings, Exit methods
     public void PlayGame()
     {
-        LoadingData.NextScene = "Scene1";
+        LoadingData.NextScene = "FightScene";
         SceneManager.LoadScene(playScene);
-    }
-
-    public void Multiplayer()
-    {
-        LoadingData.NextScene = "Scene1";
-        SceneManager.LoadScene(multiplayerScene);
     }
 
     public void Settings()
