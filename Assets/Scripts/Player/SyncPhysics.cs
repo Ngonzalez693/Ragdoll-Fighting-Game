@@ -2,26 +2,26 @@ using UnityEngine;
 
 public class SyncPhysics : MonoBehaviour
 {
-    private Rigidbody _rb;
-    private ConfigurableJoint _joint;
+   private Rigidbody _rb;
+   private ConfigurableJoint joint;
 
-    [SerializeField] private Rigidbody animateRigidbody;
-    [SerializeField] private bool syncAnimation = false;
+   [SerializeField] private Rigidbody animatedRigidbody;
+   [SerializeField] private bool syncAnimation = false;
 
-    private Quaternion _startLocalRotation;
+   private Quaternion startLocalRotation;
 
     private void Awake()
     {
         _rb = GetComponent<Rigidbody>();
-        _joint = GetComponent<ConfigurableJoint>();
+        joint = GetComponent<ConfigurableJoint>();
 
-        _startLocalRotation = _joint.transform.localRotation;
+        startLocalRotation = joint.transform.localRotation;
     }
 
-    public void updateJointFromAnimation()
+    public void UpdateJointFromAnimation()
     {
         if(!syncAnimation) return;
 
-        ConfigurableJointExtensions.SetTargetRotationLocal(_joint, animateRigidbody.transform.localRotation, _startLocalRotation);
+        ConfigurableJointExtensions.SetTargetRotationLocal(joint, animatedRigidbody.transform.localRotation, startLocalRotation);
     }
 }
