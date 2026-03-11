@@ -1,205 +1,194 @@
+using System;
 using System.Collections;
+using Unity.Cinemachine;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Interactions;
+using UnityEngine.UIElements;
 
-/// <summary>
-/// Controlador simple tipo "ragdoll" con:
-/// - Movimiento por fuerza
-/// - Rotación por ConfigurableJoint
-/// - Salto (solo si está en el piso)
-/// - Ataque izquierdo:
-///     * Tap/Press -> Puñetazo
-///     * Hold      -> Levanta mano e intenta agarrar
-/// </summary>
 public class RagdollController : MonoBehaviour
 {
-    [Header("----- REFERENCES -----")]
+    [Header("--- References ---")]
     [SerializeField] private Rigidbody _rb;
-    [SerializeField] private ConfigurableJoint _joint;
+    [SerializeField] private ConfigurableJoint _mainJoint;
     [SerializeField] private Animator _animator;
-
-    [Header("----- SETTINGS -----")]
-    [SerializeField] private float _movementSpeed = 10f;
-    [SerializeField] private float _rotationSmoothTime = 250f; // grados/seg aprox (depende de tu setup)
-
-    // Jump
-    [Header("----- JUMP -----")]
-    [SerializeField] private float _jumpForce = 25f;
-    [SerializeField] private LayerMask _groundLayer;
-    [SerializeField] private float _groundCheckDistance = 0.7f; // ajusta según tu personaje
-
-    private bool _isJumping;
-
-    // Punch (izquierdo)
-    [Header("----- PUNCH (LEFT) -----")]
     [SerializeField] private Rigidbody _upperArmLeft;
     [SerializeField] private Rigidbody _lowerArmLeft;
-    [SerializeField] private float _punchForce = 0.15f;
-    [SerializeField] private float _punchDuration = 0.5f;
-
-    private bool _isPunchingLeft;
-    private Coroutine _punchCoroutineLeft;
-
-    // Grab (izquierdo)
-    [Header("----- GRAB (LEFT) -----")]
+    [SerializeField] private Rigidbody _upperArmRight;
+    [SerializeField] private Rigidbody _lowerArmRight;
     [SerializeField] private Transform _grabPointLeft;
-    [SerializeField] private float _grabRadius = 0.3f;
-    [SerializeField] private float _grabDelay = 0.5f;
+    [SerializeField] private Transform _grabPointRight;
+    [SerializeField] private SphereCollider _hitboxLeft;
+    [SerializeField] private SphereCollider _hitboxRight;
 
-    private bool _isRaisingHandLeft;
-    private bool _isTryingGrabLeft;
+    [Space]
+    [SerializeField] private ParticleSystem walkingDust;
+
+    [Header("--- Settings ---")]
+    [SerializeField] private float _movementSpeed = 10f;
+    [SerializeField] private float _rotationSmoothTime = 5f;
+    [SerializeField] private float _jumpForce = 15f;
+    [SerializeField] private LayerMask _groundLayer;
+    [SerializeField] private float _punchForce = .15f;
+    [SerializeField] private float _punchDuration = .5f;
+
+    private float _startSlerpPositionSpring = 0.0f;
+    private bool _isActiveRagdoll = true;
+    private Rigidbody[] _rigidbodies;
+    private float[] _startRigidbodiesMass;
+    // Animator parameters
+    private int _speedAnimation = Animator.StringToHash("Speed");
+
+    private SyncPhysics[] syncPhysics;
+
+    private Vector2 direction;
+    private bool _isJumping;
+    private bool _isPunchingLeft;
+    private bool _isPunchingRight;
+    private bool _isRaisingArmLeft;
+    private bool _isRaisingArmRight;
+
     private GameObject _grabbedObjectLeft;
-    private Coroutine _grabCoroutineLeft;
+    private GameObject _grabbedObjectRight;
 
-    // Animator
-    private readonly int _speedHash = Animator.StringToHash("Speed");
-
-    // Sync ragdoll joints
-    private SyncPhysics[] _syncPhysics;
-
-    // Input
-    private Vector2 _direction;
-
-    private void Awake()
+    private void OnEnable()
     {
-        _syncPhysics = GetComponentsInChildren<SyncPhysics>();
+        syncPhysics = GetComponentsInChildren<SyncPhysics>();
+        _rigidbodies = GetComponentsInChildren<Rigidbody>();
+        _startRigidbodiesMass = new float[_rigidbodies.Length];
+
+        for (int i = 0; i < _rigidbodies.Length; i++)
+            _startRigidbodiesMass[i] = _rigidbodies[i].mass;
+
+        if (_mainJoint != null)
+            _startSlerpPositionSpring = _mainJoint.slerpDrive.positionSpring;
     }
 
     private void FixedUpdate()
     {
-        if (_rb == null)
-        {
-            Debug.LogWarning("Rigidbody is not assigned");
-            return;
-        }
+        if (!_isActiveRagdoll) { return; }
 
-        // Rotación (evita LookRotation con vector cero)
         Rotate();
+        UpdateJointsRotation();
 
-        // Sincroniza joints con animación (si tu sistema lo requiere)
-        UpdateJointRotation();
-
-        // Movimiento por fuerza
-        Move();
-
-        // Salto (se dispara una sola vez cuando _isJumping es true)
-        if (_isJumping)
-            Jump();
-
-        // Puñetazo aplica fuerzas mientras dura la ventana del golpe
-        if (_isPunchingLeft)
-            PerformPunchLeft();
-
-        // Si estás en modo levantar mano (hold), intenta agarrar sin spamear corutinas
-        if (_isRaisingHandLeft)
+        if (_rb  != null )
         {
-            if (!_isTryingGrabLeft && _grabCoroutineLeft == null)
-                _grabCoroutineLeft = StartCoroutine(TryGrabLeftRoutine());
+            Move();
+
+            if (_isJumping)
+            {
+                Jump();
+            }
+
+            if ( _isPunchingLeft)
+            {
+                PerformPunchLeft();
+            }
+            if (_isPunchingRight)
+            {
+                PerformPunchRight();
+            }
+
+            if (_isRaisingArmLeft)
+            {
+                StartCoroutine(TryGrabLeftRoutine());
+            }
+            else if (!_isRaisingArmLeft)
+            {
+                ReleaseGrabLeft();
+            }
+
+            if (_isRaisingArmRight)
+            {
+                StartCoroutine(TryGrabRightRoutine());
+            }
+            else if (!_isRaisingArmRight)
+            {
+                ReleaseGrabRight();
+            }
         }
         else
         {
-            // Si sueltas el hold: parar intento y soltar objeto
-            if (_grabCoroutineLeft != null)
-            {
-                StopCoroutine(_grabCoroutineLeft);
-                _grabCoroutineLeft = null;
-            }
-
-            _isTryingGrabLeft = false;
-            ReleaseGrabLeft();
+            Debug.LogWarning("Rigidbody is not assigned!");
         }
     }
 
-    // --------------------
-    // INPUT CALLBACKS
-    // --------------------
-
     public void OnMove(InputAction.CallbackContext ctx)
     {
-        _direction = ctx.ReadValue<Vector2>();
+        direction = ctx.ReadValue<Vector2>();
     }
 
     public void OnJump(InputAction.CallbackContext ctx)
     {
-        // Importante: ctx.performed + grounded para no saltar en el aire
         if (ctx.performed && IsGrounded())
+        {
             _isJumping = true;
+        }
     }
 
-    /// <summary>
-    /// AttackLeft:
-    /// - HoldInteraction: levantar mano y agarrar mientras mantienes
-    /// - Cualquier otra interacción (Tap/Press): puñetazo al presionar
-    /// </summary>
     public void OnAttackLeft(InputAction.CallbackContext ctx)
     {
-        // HOLD -> levantar mano + intentar agarrar
         if (ctx.interaction is HoldInteraction)
         {
-            if (ctx.performed) _isRaisingHandLeft = true;
-            if (ctx.canceled) _isRaisingHandLeft = false;
-            return;
-        }
+            if (ctx.performed)
+            {
+                _isRaisingArmLeft = true;
+            }
+            else if (ctx.canceled)
+            {
+                _isRaisingArmLeft = false;
+            }
 
-        // TAP/PRESS -> puñetazo
+        }
         if (ctx.performed)
         {
-            // Evita apilar corutinas de punch
-            if (_punchCoroutineLeft != null) StopCoroutine(_punchCoroutineLeft);
-            _punchCoroutineLeft = StartCoroutine(PunchLeftRoutine());
+            StartCoroutine(PunchLeftRoutine());
         }
     }
 
-    // --------------------
-    // MOVEMENT / ROTATION
-    // --------------------
+    public void OnAttackRight(InputAction.CallbackContext ctx)
+    {
+        if (ctx.interaction is HoldInteraction)
+        {
+            if (ctx.performed)
+            {
+                _isRaisingArmRight = true;
+            }
+            else if (ctx.canceled)
+            {
+                _isRaisingArmRight = false;
+            }
+
+        }
+        if (ctx.performed)
+        {
+            StartCoroutine(PunchRightRoutine());
+        }
+    }
 
     private void Move()
     {
-        Vector3 moveDirection = new Vector3(_direction.x, 0f, _direction.y);
+        Vector3 moveDirection = new Vector3(direction.x, 0, direction.y);
+        float moveMagnitude = moveDirection.magnitude;
+        _animator.SetFloat(_speedAnimation, moveMagnitude);
 
-        _rb.AddForce(moveDirection * _movementSpeed, ForceMode.Acceleration);
+        if (IsGrounded())
+        {
+            _rb.AddForce(moveDirection * _movementSpeed, ForceMode.VelocityChange);
 
-        if (_animator != null)
-            _animator.SetFloat(_speedHash, moveDirection.magnitude);
+            if (moveMagnitude > 0.5 && !walkingDust.isPlaying)
+                walkingDust.Play();
+            else if (moveMagnitude <= 0.5 && walkingDust.isPlaying)
+                walkingDust.Stop();
+        }
+        else
+        {
+            _rb.AddForce(moveDirection * (_movementSpeed / 2.5f), ForceMode.VelocityChange);
+
+            if (walkingDust.isPlaying)
+            walkingDust.Stop();
+        }
     }
-
-    private void Rotate()
-    {
-        if (_joint == null) return;
-
-        // OJO: En tu código original invertías X para rotar; lo dejo igual.
-        Vector3 inputDirection = new Vector3(-_direction.x, 0f, _direction.y).normalized;
-
-        // Evita "Look rotation viewing vector is zero"
-        if (inputDirection.sqrMagnitude < 0.0001f)
-            return;
-
-        Quaternion targetRotation = Quaternion.LookRotation(inputDirection, Vector3.up);
-
-        // RotateTowards: el 3er parámetro es "max degrees delta"
-        float maxDegrees = _rotationSmoothTime * Time.fixedDeltaTime;
-        _joint.targetRotation = Quaternion.RotateTowards(_joint.targetRotation, targetRotation, maxDegrees);
-    }
-
-    private void UpdateJointRotation()
-    {
-        if (_syncPhysics == null) return;
-
-        for (int i = 0; i < _syncPhysics.Length; i++)
-            _syncPhysics[i].UpdateJointFromAnimation();
-    }
-
-    private bool IsGrounded()
-    {
-        // Distancia configurable para que no falle por tamaño/pivot
-        return Physics.Raycast(_rb.position, Vector3.down, _groundCheckDistance, _groundLayer);
-    }
-
-    // --------------------
-    // JUMP
-    // --------------------
 
     private void Jump()
     {
@@ -207,20 +196,57 @@ public class RagdollController : MonoBehaviour
         _isJumping = false;
     }
 
-    // --------------------
-    // PUNCH (LEFT)
-    // --------------------
+    private void Rotate()
+    {
+        if (direction != Vector2.zero)
+        {
+            Vector3 inputDirection = new Vector3(-direction.x, 0, direction.y).normalized;
+
+            Quaternion targetRotation = Quaternion.LookRotation(inputDirection, Vector3.up);
+
+            _mainJoint.targetRotation = Quaternion.RotateTowards(_mainJoint.targetRotation, targetRotation, _rotationSmoothTime * Time.fixedDeltaTime);
+        }
+    }
+
+    private void UpdateJointsRotation()
+    {
+        for (int i = 0; i < syncPhysics.Length; i++)
+        {
+            syncPhysics[i].UpdateJointFromAnimation();
+        }
+    }
+
+    private bool IsGrounded()
+    {
+        return Physics.Raycast(_rb.position, Vector3.down, .5f, _groundLayer);
+    }
 
     private void PerformPunchLeft()
     {
-        if (_lowerArmLeft == null || _upperArmLeft == null) return;
+        if (_lowerArmLeft != null)
+        {
+            Vector3 punchDirection = transform.forward.normalized;
+            Vector3 uppArmDirection = punchDirection * -1;
+            _upperArmLeft.AddForce(punchDirection * 0.05f, ForceMode.Impulse);
+            _lowerArmLeft.AddForce(punchDirection * _punchForce, ForceMode.Impulse);
 
-        // Golpe siempre hacia delante del personaje
-        Vector3 punchDirection = transform.forward.normalized;
+            _hitboxLeft.enabled = true;
+            StartCoroutine(DisableHitboxAfterTime(_hitboxLeft, 0.25f));
+        }
+    }
 
-        // Fuerza pequeña en brazo superior + fuerza principal en antebrazo
-        _upperArmLeft.AddForce(punchDirection * 0.05f, ForceMode.Impulse);
-        _lowerArmLeft.AddForce(punchDirection * _punchForce, ForceMode.Impulse);
+    private void PerformPunchRight()
+    {
+        if (_lowerArmRight != null)
+        {
+            Vector3 punchDirection = transform.forward.normalized;
+            Vector3 uppArmDirection = punchDirection * -1;
+            _upperArmRight.AddForce(punchDirection * 0.05f, ForceMode.Impulse);
+            _lowerArmRight.AddForce(punchDirection * _punchForce, ForceMode.Impulse);
+
+            _hitboxRight.enabled = true;
+            StartCoroutine(DisableHitboxAfterTime(_hitboxRight, 0.25f));
+        }
     }
 
     private IEnumerator PunchLeftRoutine()
@@ -230,109 +256,174 @@ public class RagdollController : MonoBehaviour
         yield return new WaitForSeconds(_punchDuration);
 
         _isPunchingLeft = false;
-        _punchCoroutineLeft = null;
     }
 
-    // --------------------
-    // GRAB (LEFT)
-    // --------------------
+    private IEnumerator PunchRightRoutine()
+    {
+        _isPunchingRight = true;
+
+        yield return new WaitForSeconds(_punchDuration);
+
+        _isPunchingRight = false;
+    }
+
+    private IEnumerator DisableHitboxAfterTime(Collider hitbox, float time)
+    {
+        yield return new WaitForSeconds(time);
+        hitbox.enabled = false;
+    }
 
     private IEnumerator TryGrabLeftRoutine()
     {
-        if (_grabPointLeft == null)
-        {
-            Debug.LogWarning("GrabPointLeft is not assigned");
-            _grabCoroutineLeft = null;
-            yield break;
-        }
-
-        _isTryingGrabLeft = true;
-
-        // Sube el brazo antes de buscar
         RaiseArmLeft();
 
-        // Espera para dar tiempo a que la mano llegue
-        yield return new WaitForSeconds(_grabDelay);
+        yield return new WaitForSeconds(0.5f);
 
-        // Si en este lapso soltaste el botón, no intentes agarrar
-        if (!_isRaisingHandLeft)
+        Collider[] colliders = Physics.OverlapSphere(_grabPointLeft.position, 0.2f);
+
+        foreach (var collider in colliders)
         {
-            _isTryingGrabLeft = false;
-            _grabCoroutineLeft = null;
-            yield break;
+            if (collider.transform.IsChildOf(transform)) { continue; }
+
+            if (collider.attachedRigidbody != null)
+            {
+                FixedJoint joint = _grabPointLeft.gameObject.GetComponent<FixedJoint>();
+
+                if (joint == null)
+                {
+                    joint = _grabPointLeft.gameObject.AddComponent<FixedJoint>();
+                }
+
+                joint.connectedBody = collider.attachedRigidbody;
+
+                joint.breakForce = 500f;
+                joint.breakTorque = 500f;
+                joint.autoConfigureConnectedAnchor = false;
+                joint.connectedAnchor = collider.transform.InverseTransformPoint(collider.transform.position);
+
+                _grabbedObjectLeft = collider.gameObject;
+                break;
+            }    
         }
-
-        // Si ya tienes algo agarrado, no vuelvas a crear joint
-        if (_grabbedObjectLeft != null)
-        {
-            _isTryingGrabLeft = false;
-            _grabCoroutineLeft = null;
-            yield break;
-        }
-
-        Collider[] colliders = Physics.OverlapSphere(_grabPointLeft.position, _grabRadius);
-
-        foreach (Collider col in colliders)
-        {
-            // Ignora tu propio cuerpo
-            if (col.transform.IsChildOf(transform))
-                continue;
-
-            // Necesitamos un rigidbody para conectar un FixedJoint
-            if (col.attachedRigidbody == null)
-                continue;
-
-            // Evita crear 2 joints:
-            // Si existe, úsalo; si no, créalo.
-            FixedJoint joint = _grabPointLeft.GetComponent<FixedJoint>();
-            if (joint == null)
-                joint = _grabPointLeft.gameObject.AddComponent<FixedJoint>();
-
-            joint.connectedBody = col.attachedRigidbody;
-
-            // Ajustes típicos
-            joint.breakForce = 500f;
-            joint.breakTorque = 500f;
-
-            // Nota: Estos anchors dependen de tu setup. Esto es "simple" y suele bastar.
-            joint.autoConfigureConnectedAnchor = true;
-
-            _grabbedObjectLeft = col.gameObject;
-            break;
-        }
-
-        _isTryingGrabLeft = false;
-        _grabCoroutineLeft = null;
     }
 
     private void ReleaseGrabLeft()
     {
-        if (_grabPointLeft == null) return;
+        if (_grabbedObjectLeft != null)
+        {
+            var joint = _grabPointLeft.gameObject.GetComponent<FixedJoint>();
+            if (joint != null)
+            {
+                Destroy(joint);
+            }
 
-        // Destruye el joint SIEMPRE que exista (aunque _grabbedObjectLeft sea null por un bug)
-        FixedJoint joint = _grabPointLeft.GetComponent<FixedJoint>();
-        if (joint != null)
-            Destroy(joint);
-
-        _grabbedObjectLeft = null;
+            _grabbedObjectLeft = null;
+        }
     }
 
     private void RaiseArmLeft()
     {
-        if (_lowerArmLeft == null) return;
+        if (_lowerArmLeft != null)
+        {
+            Vector3 raiseDirection = transform.forward + Vector3.up * 0.6f;
 
-        // Levanta mano hacia adelante y arriba
-        Vector3 raiseDirection = transform.forward + Vector3.up * 0.6f;
-        _lowerArmLeft.AddForce(raiseDirection.normalized * 0.05f, ForceMode.Impulse);
+            _lowerArmLeft.AddForce(raiseDirection * 0.05f, ForceMode.Impulse);
+        }
     }
 
-#if UNITY_EDITOR
-    // Gizmo para ver el radio de agarre en la escena
-    private void OnDrawGizmosSelected()
+    private IEnumerator TryGrabRightRoutine()
     {
-        if (_grabPointLeft == null) return;
+        RaiseArmRight();
 
-        Gizmos.DrawWireSphere(_grabPointLeft.position, _grabRadius);
+        yield return new WaitForSeconds(0.5f);
+
+        Collider[] colliders = Physics.OverlapSphere(_grabPointRight.position, 0.2f);
+
+        foreach (var collider in colliders)
+        {
+            if (collider.transform.IsChildOf(transform)) { continue; }
+
+            if (collider.attachedRigidbody != null)
+            {
+                FixedJoint joint = _grabPointRight.gameObject.GetComponent<FixedJoint>();
+
+                if (joint == null)
+                {
+                    joint = _grabPointRight.gameObject.AddComponent<FixedJoint>();
+                }
+
+                joint.connectedBody = collider.attachedRigidbody;
+
+                joint.breakForce = 500f;
+                joint.breakTorque = 500f;
+                joint.autoConfigureConnectedAnchor = false;
+                joint.connectedAnchor = collider.transform.InverseTransformPoint(collider.transform.position);
+
+                _grabbedObjectRight = collider.gameObject;
+                break;
+            }
+        }
     }
-#endif
+
+    private void ReleaseGrabRight()
+    {
+        if (_grabbedObjectRight != null)
+        {
+            var joint = _grabPointRight.gameObject.GetComponent<FixedJoint>();
+            if (joint != null)
+            {
+                Destroy(joint);
+            }
+
+            _grabbedObjectRight = null;
+        }
+    }
+
+    private void RaiseArmRight()
+    {
+        if (_lowerArmRight != null)
+        {
+            Vector3 raiseDirection = transform.forward + Vector3.up * 0.6f;
+
+            _lowerArmRight.AddForce(raiseDirection * 0.05f, ForceMode.Impulse);
+        }
+    }
+
+    public void MakeRagdoll()
+    {
+        JointDrive jointDrive = _mainJoint.slerpDrive;
+        jointDrive.positionSpring = 0;
+        _mainJoint.slerpDrive = jointDrive;
+
+        for (int i = 0; i < syncPhysics.Length; i++)
+        {
+            syncPhysics[i].MakeRagdoll();
+        }
+
+        for (int i = 0; i < _rigidbodies.Length; i++)
+        {
+            _rigidbodies[i].mass = 0.001f;
+        }
+
+        _isActiveRagdoll = false;
+    }
+
+    public void MakeActiveRagdoll()
+    {
+        JointDrive jointDrive = _mainJoint.slerpDrive;
+        jointDrive.positionSpring = _startSlerpPositionSpring;
+        _mainJoint.slerpDrive = jointDrive;
+
+        for (int i = 0; i < syncPhysics.Length; i++)
+        {
+            syncPhysics[i].MakeActiveRagdoll();
+        }
+
+        for (int i = 0; i < _rigidbodies.Length; i++)
+        {
+            _rigidbodies[i].mass = _startRigidbodiesMass[i];
+        }
+
+        _isActiveRagdoll = true;
+    }
 }
