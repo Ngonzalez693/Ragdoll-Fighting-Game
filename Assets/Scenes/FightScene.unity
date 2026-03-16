@@ -734,7 +734,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &149341055
 RectTransform:
   m_ObjectHideFlags: 0
@@ -4410,13 +4410,9 @@ MonoBehaviour:
   players:
   - {fileID: 1528641843}
   - {fileID: 616746738}
-  - {fileID: 50003160}
-  - {fileID: 1763618819}
   ragdollControllers:
   - {fileID: 9102314601035930376}
   - {fileID: 7055267}
-  - {fileID: 1560033963}
-  - {fileID: 1081204566}
   startPanel: {fileID: 1997835615}
   finalPanel: {fileID: 1804759074}
   instructionText: {fileID: 1221952781}
@@ -5059,7 +5055,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &882310577
 RectTransform:
   m_ObjectHideFlags: 0
@@ -5647,7 +5643,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6294659775765530788, guid: cdb1441a1c916f345b56852faa6ff63e, type: 3}
       propertyPath: m_IsActive
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6703072719975706779, guid: cdb1441a1c916f345b56852faa6ff63e, type: 3}
       propertyPath: m_LocalPosition.x
@@ -5706,17 +5702,6 @@ PrefabInstance:
       insertIndex: -1
       addedObject: {fileID: 1159863227}
   m_SourcePrefab: {fileID: 100100000, guid: cdb1441a1c916f345b56852faa6ff63e, type: 3}
---- !u!114 &1081204566 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 2133933269270189870, guid: cdb1441a1c916f345b56852faa6ff63e, type: 3}
-  m_PrefabInstance: {fileID: 1081204565}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1763618817}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: dad06601ec2a4d440848ad1b34316a8f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!1001 &1084824291
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -8235,7 +8220,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6294659775765530788, guid: cdb1441a1c916f345b56852faa6ff63e, type: 3}
       propertyPath: m_IsActive
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6703072719975706779, guid: cdb1441a1c916f345b56852faa6ff63e, type: 3}
       propertyPath: m_LocalPosition.x
@@ -8294,17 +8279,6 @@ PrefabInstance:
       insertIndex: -1
       addedObject: {fileID: 514873101}
   m_SourcePrefab: {fileID: 100100000, guid: cdb1441a1c916f345b56852faa6ff63e, type: 3}
---- !u!114 &1560033963 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 2133933269270189870, guid: cdb1441a1c916f345b56852faa6ff63e, type: 3}
-  m_PrefabInstance: {fileID: 1560033962}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 50003158}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: dad06601ec2a4d440848ad1b34316a8f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!82 &1560033970
 AudioSource:
   m_ObjectHideFlags: 0
@@ -10088,7 +10062,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1859271041}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 803536044}
+        m_TargetAssemblyTypeName: FightGameManager, Assembly-CSharp
+        m_MethodName: FinishGame
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &1859271041
 MonoBehaviour:
   m_ObjectHideFlags: 0
