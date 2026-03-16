@@ -11,27 +11,25 @@ public class SettingsPanelController : MonoBehaviour
     [SerializeField] private Sprite soundOnSprite;
     [SerializeField] private Sprite soundOffSprite;
 
-    [Header("Audio")]
-    [SerializeField] private AudioSource audioSource;                   // AudioSource component to play sound effects
-    [SerializeField] private AudioClip optionSelection;                 // Sound effect for when a button is clicked
+    [Header("SFX Audio")]
+    [SerializeField] private AudioSource sfxSource;
+    [SerializeField] private AudioClip optionSelection;
 
-    private bool isMuted = false;                                       // Tracks whether the audio is currently muted
+    private bool isMuted = false;
 
-    // Helper method to play a sound effect
     private void PlaySound(AudioClip clip)
     {
-        if (audioSource != null && clip != null)
+        if (sfxSource != null && clip != null)
         {
-            audioSource.PlayOneShot(clip);
+            sfxSource.PlayOneShot(clip);
         }
     }
+
     private void Start()
     {
-        // Oculta el panel al iniciar
         if (settingsPanel != null)
             settingsPanel.SetActive(false);
 
-        // Cargar estado guardado
         isMuted = PlayerPrefs.GetInt("Muted", 0) == 1;
         ApplyAudioState();
     }
@@ -46,6 +44,7 @@ public class SettingsPanelController : MonoBehaviour
     {
         if (settingsPanel != null)
             settingsPanel.SetActive(false);
+
         PlaySound(optionSelection);
     }
 
@@ -56,8 +55,8 @@ public class SettingsPanelController : MonoBehaviour
         PlayerPrefs.SetInt("Muted", isMuted ? 1 : 0);
         PlayerPrefs.Save();
 
-        PlaySound(optionSelection);
         ApplyAudioState();
+        PlaySound(optionSelection);
     }
 
     private void ApplyAudioState()

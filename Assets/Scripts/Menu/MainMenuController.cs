@@ -5,33 +5,69 @@ using System.Collections;
 public class MainMenuController : MonoBehaviour
 {
     [Header("Scenes")]
-    [SerializeField] private string playScene = "";                     // Name of the scene to load when "Play" is clicked
+    [SerializeField] private string playScene = "";
 
-    [Header("Audio")]
-    [SerializeField] private AudioSource audioSource;                   // AudioSource component to play sound effects
-    [SerializeField] private AudioClip optionChange;                    // Sound effect for when the mouse hovers over a button
-    [SerializeField] private AudioClip optionSelection;                 // Sound effect for when a button is clicked
+    [Header("SFX Audio")]
+    [SerializeField] private AudioSource sfxSource;
+    [SerializeField] private AudioClip optionChange;
+    [SerializeField] private AudioClip optionSelection;
+
+    [Header("Music Audio")]
+    [SerializeField] private AudioSource musicSource;
+    [SerializeField] private AudioClip menuMusic;
+    [SerializeField] private bool playMusicOnStart = true;
 
     [Header("Delay")]
-    [SerializeField] private float sceneLoadDelay = 0.3f;               // Delay before loading the next scene after clicking "Play"
+    [SerializeField] private float sceneLoadDelay = 0.3f;
+
     private bool isLoading = false;
 
-    // Helper method to play a sound effect
-    private void PlaySound(AudioClip clip)
+    private void Start()
     {
-        if (audioSource != null && clip != null)
+        ApplySavedMuteState();
+
+        if (playMusicOnStart)
         {
-            audioSource.PlayOneShot(clip);
+            StartMenuMusic();
         }
     }
 
-    // When mouse passes over a button, play the option change sound
+    private void PlaySound(AudioClip clip)
+    {
+        if (sfxSource != null && clip != null)
+        {
+            sfxSource.PlayOneShot(clip);
+        }
+    }
+
+    private void StartMenuMusic()
+    {
+        if (musicSource == null || menuMusic == null) return;
+
+        if (musicSource.clip != menuMusic)
+        {
+            musicSource.clip = menuMusic;
+        }
+
+        musicSource.loop = true;
+
+        if (!musicSource.isPlaying)
+        {
+            musicSource.Play();
+        }
+    }
+
+    private void ApplySavedMuteState()
+    {
+        bool isMuted = PlayerPrefs.GetInt("Muted", 0) == 1;
+        AudioListener.volume = isMuted ? 0f : 1f;
+    }
+
     public void OnHoverButton()
     {
         PlaySound(optionChange);
     }
 
-    // Play
     public void PlayGame()
     {
         if (isLoading) return;
@@ -49,16 +85,13 @@ public class MainMenuController : MonoBehaviour
         SceneManager.LoadScene(playScene);
     }
 
-    // Exit 
     public void ExitGame()
     {
         PlaySound(optionSelection);
 
-        // Close the application
         Application.Quit();
         Debug.Log("Exiting game...");
 
-        // In editor, stop playing
         #if UNITY_EDITOR
         UnityEditor.EditorApplication.isPlaying = false;
         #endif

@@ -62,6 +62,9 @@ public class RagdollController : MonoBehaviour
 
         if (_mainJoint != null)
             _startSlerpPositionSpring = _mainJoint.slerpDrive.positionSpring;
+
+        if (_hitboxLeft != null) _hitboxLeft.enabled = false;
+        if (_hitboxRight != null) _hitboxRight.enabled = false;
     }
 
     private void FixedUpdate()
@@ -168,7 +171,7 @@ public class RagdollController : MonoBehaviour
 
     private void Move()
     {
-        Vector3 moveDirection = new Vector3(direction.x, 0, direction.y);
+        Vector3 moveDirection = new Vector3(-direction.x, 0, -direction.y);
         float moveMagnitude = moveDirection.magnitude;
         _animator.SetFloat(_speedAnimation, moveMagnitude);
 
@@ -200,7 +203,7 @@ public class RagdollController : MonoBehaviour
     {
         if (direction != Vector2.zero)
         {
-            Vector3 inputDirection = new Vector3(-direction.x, 0, direction.y).normalized;
+            Vector3 inputDirection = new Vector3(direction.x, 0, -direction.y).normalized;
 
             Quaternion targetRotation = Quaternion.LookRotation(inputDirection, Vector3.up);
 
